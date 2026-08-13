@@ -23,8 +23,8 @@ export default function Landing() {
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white border-b border-green-100 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 min-w-0">
             <div className="w-9 h-9 bg-green-600 rounded-xl flex items-center justify-center shadow">
               <Leaf size={20} className="text-white" />
             </div>
@@ -34,14 +34,17 @@ export default function Landing() {
             </div>
           </div>
 
+          <div className="hidden md:flex flex-1 justify-center">
+            <LanguageSelector />
+          </div>
+
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
+          <nav className="hidden md:flex items-center gap-5 text-sm font-medium text-gray-600">
             <a href="#services" className="hover:text-green-600 transition-colors">{t('services')}</a>
             <a href="#contact" className="hover:text-green-600 transition-colors">{t('contactUs')}</a>
-            <LanguageSelector />
             <button
               onClick={() => setView('farmer-login')}
-              className="bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition-colors font-semibold"
+              className="bg-green-600 text-white px-5 py-2.5 rounded-full hover:bg-green-700 transition-colors font-bold shadow-md text-base min-w-[140px]"
             >
               {t('login')}
             </button>
@@ -87,22 +90,22 @@ export default function Landing() {
           <p className="text-xl md:text-2xl text-green-100 mb-10 max-w-2xl mx-auto leading-relaxed">
             {t('tagline')}
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <button
               onClick={() => setView('farmer-login')}
-              className="bg-white text-green-700 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-green-50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+              className="bg-white text-green-700 px-10 py-5 rounded-2xl font-extrabold text-xl hover:bg-green-50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 min-w-[230px] border-2 border-white/80"
             >
               🌾 {lang === 'te' ? 'రైతు లాగిన్' : lang === 'hi' ? 'किसान लॉगिन' : 'Farmer Login'}
             </button>
             <button
               onClick={() => setView('expert-login')}
-              className="bg-white/20 border border-white/40 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-white/30 transition-all backdrop-blur-sm"
+              className="bg-white/20 border border-white/40 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-white/30 transition-all backdrop-blur-sm min-w-[180px]"
             >
               👨‍🔬 {lang === 'te' ? 'నిపుణుడు' : lang === 'hi' ? 'विशेषज्ञ' : 'Expert'}
             </button>
             <button
               onClick={() => setView('gov-login')}
-              className="bg-white/20 border border-white/40 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-white/30 transition-all backdrop-blur-sm"
+              className="bg-white/20 border border-white/40 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-white/30 transition-all backdrop-blur-sm min-w-[180px]"
             >
               🏛️ {lang === 'te' ? 'ప్రభుత్వం' : lang === 'hi' ? 'सरकार' : 'Government'}
             </button>
