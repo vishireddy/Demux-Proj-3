@@ -13,38 +13,76 @@ export default function FarmerLogin() {
   const [loading, setLoading] = useState(false);
 
   const handleSendOtp = () => {
-    if (mobile.length !== 10) { setError('Enter a valid 10-digit mobile number'); return; }
-    const found = farmers.find(f => f.mobile === mobile);
+    // Accept international format (+<country><number>) or 10-digit local number
+    const normalized = mobile.startsWith('+') ? mobile : mobile.replace(/^0+/, '');
+    if (!normalized.startsWith('+') && normalized.length !== 10) { setError('Enter a valid 10-digit mobile number or include country code (e.g. +919876543210)'); return; }
+    const searchMobile = normalized.startsWith('+') ? normalized.replace(/^\+91/, '') : normalized;
+    const found = farmers.find(f => f.mobile === searchMobile);
     if (!found) { setError(t('farmerNotFound')); return; }
     setError('');
     setLoading(true);
     // Send OTP via Supabase (Supabase must be configured with a Twilio SMS provider)
-    const phone = `+91${mobile}`;
+    const phone = mobile.startsWith('+') ? mobile : `+91${mobile}`;
     supabase.auth.signInWithOtp({ phone })
-      .then(({ error }) => {
+      .then(({ error }: any) => {
         setLoading(false);
         if (error) setError(error.message || 'Failed to send OTP');
         else setStep('otp');
       })
-      .catch(err => { setLoading(false); setError(String(err)); });
+      .catch((err: any) => { setLoading(false); setError(String(err)); });
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     if (otp.length === 0) { setError('Enter the OTP'); return; }
     setLoading(true);
     setError('');
-    const phone = `+91${mobile}`;
-    // Verify OTP via Supabase
-    supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' })
-      .then(({ data, error }) => {
-        setLoading(false);
-        if (error) { setError(error.message || t('invalidOtp')); return; }
-        // On success, Supabase returns a session/user; map to local farmer record and continue
-        const found = farmers.find(f => f.mobile === mobile)!;
-        setFarmer(found);
-        setView('farmer-dashboard');
-      })
-      .catch(err => { setLoading(false); setError(String(err)); });
+    const phone = mobile.startsWith('+') ? mobile : `+91${mobile}`;
+
+    try {
+      // Verify OTP via Supabase
+      const verifyRes: any = await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' } as any);
+      setLoading(false);
+      if (verifyRes?.error) {
+        setError(verifyRes.error.message || t('invalidOtp'));
+        return;
+      }
+
+      // Get authenticated user (optional)
+      const userRes: any = await supabase.auth.getUser();
+      const supaUser = userRes?.data?.user;
+      const phoneUsed = supaUser?.phone || phone;
+
+      // Try to fetch existing farmer record from `farmers` table
+      const { data: farmersData, error: farmersErr }: any = await supabase.from('farmers').select('*').eq('phone', phoneUsed).limit(1);
+      if (farmersErr) console.warn('Supabase fetch farmers error', farmersErr);
+
+      let farmerRecord: any = null;
+      if (!farmersData || farmersData.length === 0) {
+        // Insert a minimal farmer record for this phone
+        const toInsert = {
+          phone: phoneUsed,
+          mobile: phoneUsed.replace(/^\+91/, ''),
+          name: 'Farmer',
+          state: '', district: '', mandal: '', village: '', crops: [],
+        };
+        const { data: inserted, error: insertErr }: any = await supabase.from('farmers').insert([toInsert]).select().single();
+        if (insertErr) {
+          console.warn('Insert farmer failed', insertErr);
+          farmerRecord = toInsert;
+        } else {
+          farmerRecord = inserted;
+        }
+      } else {
+        farmerRecord = farmersData[0];
+      }
+
+      // Map Supabase farmer record to local `Farmer` type and continue
+      setFarmer(farmerRecord as any);
+      setView('farmer-dashboard');
+    } catch (err: any) {
+      setLoading(false);
+      setError(String(err));
+    }
   };
 
   return (
@@ -88,9 +126,9 @@ export default function FarmerLogin() {
                   <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
                     type="tel"
-                    maxLength={10}
+                    maxLength={15}
                     value={mobile}
-                    onChange={e => setMobile(e.target.value.replace(/\D/g, ''))}
+                    onChange={e => setMobile(e.target.value.replace(/[^\d+]/g, ''))}
                     placeholder={t('enterMobileNumber')}
                     className="w-full pl-10 pr-4 py-4 border border-gray-200 rounded-2xl text-lg font-mono focus:outline-none focus:ring-2 focus:ring-green-400"
                   />
@@ -137,7 +175,7 @@ export default function FarmerLogin() {
                 </div>
                 {error && <p className="text-red-500 text-sm">{error}</p>}
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-sm text-yellow-800">
-                  <strong>Demo:</strong> Use OTP <span className="font-mono font-bold">123456</span>
+                  Check your SMS for the OTP (in dev mode the OTP is logged to the browser console).
                 </div>
                 <button
                   onClick={handleVerifyOtp}
