@@ -16,18 +16,44 @@ export default function FarmerLogin() {
     // Accept international format (+<country><number>) or 10-digit local number
     const normalized = mobile.startsWith('+') ? mobile : mobile.replace(/^0+/, '');
     if (!normalized.startsWith('+') && normalized.length !== 10) { setError('Enter a valid 10-digit mobile number or include country code (e.g. +919876543210)'); return; }
-    const searchMobile = normalized.startsWith('+') ? normalized.replace(/^\+91/, '') : normalized;
-    const found = farmers.find(f => f.mobile === searchMobile);
-    if (!found) { setError(t('farmerNotFound')); return; }
+
+    // Normalize to E.164 for sending, and plain 10-digit for checking `mobile` column
+    const e164Phone = normalized.startsWith('+') ? normalized : `+91${normalized}`;
+    const plainMobile = e164Phone.replace(/^\+91/, '');
+
     setError('');
     setLoading(true);
-    // Send OTP via Supabase (Supabase must be configured with a Twilio SMS provider)
-    const phone = mobile.startsWith('+') ? mobile : `+91${mobile}`;
-    supabase.auth.signInWithOtp({ phone })
-      .then(({ error }: any) => {
-        setLoading(false);
-        if (error) setError(error.message || 'Failed to send OTP');
-        else setStep('otp');
+
+    // Check the `farmers` table to ensure this phone is registered before sending OTP.
+    // We check either the `phone` column (E.164) or `mobile` column (10-digit) to support both schemas.
+    supabase
+      .from('farmers')
+      .select('id')
+      .or(`phone.eq.${e164Phone},mobile.eq.${plainMobile}`)
+      .limit(1)
+      .then(({ data, error }: any) => {
+        if (error) {
+          // If DB check fails, allow developer to see the error but prevent OTP spam.
+          console.warn('Error checking farmers table', error);
+          setLoading(false);
+          setError('Unable to verify registration. Try again later.');
+          return;
+        }
+
+        if (!data || data.length === 0) {
+          setLoading(false);
+          setError(t('farmerNotFound'));
+          return;
+        }
+
+        // Registered — send OTP via Supabase (Supabase must be configured with a Twilio SMS provider)
+        supabase.auth.signInWithOtp({ phone: e164Phone })
+          .then(({ error: sendErr }: any) => {
+            setLoading(false);
+            if (sendErr) setError(sendErr.message || 'Failed to send OTP');
+            else setStep('otp');
+          })
+          .catch((err: any) => { setLoading(false); setError(String(err)); });
       })
       .catch((err: any) => { setLoading(false); setError(String(err)); });
   };
